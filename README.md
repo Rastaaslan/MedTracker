@@ -1,27 +1,35 @@
 # MedTracker
 
-Application Android locale de suivi des prises de médicaments.
+MVP Android local-first permettant de saisir les règles d'un traitement, consulter les prises du jour, enregistrer l'heure réelle séparément, la corriger ou l'annuler, et consulter l'historique. MedTracker restitue uniquement la configuration de l'utilisateur : il ne fournit aucun conseil médical.
 
-## Objectif MVP
+## Architecture
 
-MedTracker permet de saisir un traitement tel qu'il est prescrit, d'afficher les prises prévues de la journée, de confirmer une prise réelle (par exemple « prise du matin »), d'enregistrer l'heure réelle et de rappeler les prises prévues.
+- Application Kotlin, Jetpack Compose et Material 3, avec quatre destinations : Aujourd'hui, Traitements, Historique et Réglages.
+- Room est l'unique stockage. `Medication`, `Treatment`, `ScheduleRule` et `IntakeEvent` sont persistés séparément ; `ScheduledDose` est calculé.
+- `SchedulingEngine` est un moteur Kotlin pur. Les horaires fixes restent fixes ; le mode intervalle repart exclusivement du timestamp réel précédent et de l'intervalle saisi.
+- `MedTrackerRepository` isole Room, le `MainViewModel` expose des `StateFlow`, et `ReminderScheduler` isole AlarmManager.
+- Aucun backend, compte, analytics ou transfert de données.
 
-Le produit ne doit jamais inventer, corriger ou recommander une posologie. Il suit uniquement les informations saisies par l'utilisateur.
+## Prérequis et lancement
 
-## Principes
+Android Studio récent, Android SDK 35, JDK 17 et **Gradle 8.11.1**. Le wrapper Gradle binaire n'est pas versionné dans ce dépôt afin que la contribution reste composée uniquement de fichiers texte : une version compatible de Gradle doit donc être installée localement et disponible dans le `PATH`. Ouvrir ensuite le dossier, laisser Gradle synchroniser, puis lancer la configuration `app` sur Android 8.0 (API 26) ou ultérieur.
 
-- Android en priorité.
-- Fonctionnement local/offline.
-- Aucune création de compte nécessaire pour le MVP.
-- Données de santé conservées sur l'appareil.
-- Notifications locales.
-- Historique des prises.
-- Horaires fixes et intervalle minimal configuré par l'utilisateur.
-- Possibilité de corriger l'heure réelle d'une prise.
-- Aucune recommandation médicale ou interprétation clinique.
+```bash
+gradle testDebugUnitTest
+gradle lintDebug
+gradle assembleDebug
+```
 
-## Confidentialité
+L'APK est produit dans `app/build/outputs/apk/debug/app-debug.apk`.
 
-Ce dépôt est public. **Ne jamais committer de véritables ordonnances, noms de patients, traitements personnels, données exportées de l'application ou autres données de santé.** Les fixtures et captures de tests doivent utiliser exclusivement des données fictives.
+## Rappels
 
-Voir `AGENTS.md` et `docs/MVP_SPEC.md` avant toute implémentation.
+L'application demande la permission de notification seulement depuis Réglages. Elle utilise des alarmes locales non exactes compatibles avec les restrictions Android. Un refus n'affecte jamais les traitements ni l'historique. Après redémarrage, l'application conserve toutes les données Room et signale le besoin de replanifier les rappels.
+
+## CI et APK
+
+Le workflow **Android CI** installe explicitement Gradle 8.11.1 avec `gradle/actions/setup-gradle`, exécute lint, les tests unitaires et `assembleDebug`, puis publie `medtracker-debug-apk`. Dans GitHub, ouvrir l'exécution correspondante dans **Actions** et télécharger cet artifact.
+
+## Limites MVP
+
+Pas de synchronisation, compte, diagnostic, recommandations, interactions médicamenteuses ni suivi clinique. Les alarmes peuvent être retardées par Android. La sélection avancée de date et l'édition groupée de nombreuses règles restent volontairement simples dans ce premier MVP.
